@@ -22,3 +22,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["stretchserve"]
+
+[tool.pytest.ini_options]
+markers = [
+    "browser: needs playwright and a chromium binary (uv run --with playwright pytest -m browser)",
+]
