@@ -31,6 +31,7 @@ from .scanner import Segment, Stretch, parse, validate
 # the browser needs. Fenced blocks stay verbatim; mermaid/viz render them.
 _DEFAULT_EXTENSIONS = ["fenced_code", "tables", "sane_lists"]
 _HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
+_BLANK_LINE = re.compile(r"\n[ \t]*\n")
 
 
 @dataclass
@@ -51,6 +52,7 @@ class Renderer:
         issues = validate(md_text, segments)
         registry: dict[str, dict] = {}
         flat = self._flatten(segments, registry, md_text)
+        flat = self._place_block_tokens(flat, registry)
         html_out = self.convert(flat)
         html_out = self._substitute(html_out, registry)
         html_out, in_heading = self._check_headings(html_out, registry)
@@ -85,10 +87,39 @@ class Renderer:
             tok = self._alloc_token(registry, doc_text)
             entry = {"stretch": seg}
             if seg.long is not None:
-                entry["long_flat"] = self._flatten(seg.long, registry, doc_text)
+                long_flat = self._flatten(seg.long, registry, doc_text)
+                entry["long_flat"] = long_flat
+                # A long form that crosses a blank line grows at block level.
+                entry["block"] = bool(_BLANK_LINE.search(long_flat))
             registry[tok] = entry
             parts.append(tok)
         return "".join(parts)
+
+    def _place_block_tokens(self, flat: str, registry: dict) -> str:
+        """Give each block-level token a paragraph of its own.
+
+        A block stretch's token replaces the whole `{{short|long}}` span;
+        any text sharing its line is broken off into its own paragraphs, so
+        markdown renders the token as a standalone block.
+        """
+        positions = []
+        for tok, entry in registry.items():
+            if entry.get("block"):
+                i = flat.find(tok)
+                if i != -1:
+                    positions.append((i, tok))
+        positions.sort(reverse=True)  # insert from the end; earlier indices stay valid
+        for i, tok in positions:
+            end = i + len(tok)
+            line_end = flat.find("\n", end)
+            if line_end == -1:
+                line_end = len(flat)
+            if flat[end:line_end].strip():
+                flat = flat[:end] + "\n\n" + flat[end:]
+            line_start = flat.rfind("\n", 0, i) + 1
+            if flat[line_start:i].strip():
+                flat = flat[:i] + "\n\n" + flat[i:]
+        return flat
 
     # -- substitution -------------------------------------------------------
 
@@ -96,6 +127,12 @@ class Renderer:
         for _ in range(200):
             changed = False
             for tok, entry in registry.items():
+                if entry.get("block") and tok in html_out:
+                    # The token should own its paragraph: replace `<p>TOKEN</p>` whole.
+                    block_html = self._token_html(entry, registry, block=True)
+                    html_out, n = re.subn(rf"<p>\s*{tok}\s*</p>", lambda m: block_html, html_out)
+                    if n:
+                        changed = True
                 if tok in html_out:
                     html_out = html_out.replace(tok, self._token_html(entry, registry))
                     changed = True
@@ -103,16 +140,22 @@ class Renderer:
                 return html_out
         raise RuntimeError("placeholder substitution did not settle")
 
-    def _token_html(self, entry: dict, registry: dict) -> str:
+    def _token_html(self, entry: dict, registry: dict, block: bool = False) -> str:
         st: Stretch = entry["stretch"]
         if st.long is None:
             # Nothing to open: the braces vanish, the short form is plain text.
             return self._convert_inline(st.short)
         short_html = self._convert_inline(st.short)
         long_flat = entry.get("long_flat", "")
-        long_html = self._convert_inline(long_flat)
-        long_html = self._substitute(long_html, registry)
+        long_html = self._substitute(self.convert(long_flat) if block else self._convert_inline(long_flat), registry)
         key = html.escape(st.key, quote=True)
+        if block:
+            return (
+                f'<div class="stx stx-block" data-key="{key}">'
+                f'<span class="stx-short">{short_html}</span>'
+                f'<div class="stx-long">{long_html}</div>'
+                f"</div>"
+            )
         return (
             f'<span class="stx" data-key="{key}">'
             f'<span class="stx-short">{short_html}</span>'

@@ -85,10 +85,11 @@ blocks; nothing special is needed to create them over MCP.
 4. **Markdown never lies.** Code spans and fences are opaque; no stretches
    in code, tables, or headings; list items stretch individually.
 
-Inline-only limitation (v1): a stretch may not cross a blank line, so a
-long form is inline markdown (bold, links, code spans) but not block
-markdown (paragraphs, lists). Matching cc-stretch fully means letting a
-paragraph grow into several — later.
+**Block growth** (Nelson's "a paragraph into several"): a long form may
+hold paragraphs, lists and fenced code when the stretch stands on its
+own line at the top level. Placement is validated: a block stretch
+cannot start inside a list, quote, table, indent, or another stretch —
+those stay inline-only.
 
 ## Architecture
 

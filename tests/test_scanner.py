@@ -76,9 +76,24 @@ def test_unclosed_stretch():
     assert any(i["severity"] == "error" and "never closed" in i["message"] for i in issues)
 
 
-def test_blank_line_in_stretch_rejected():
-    issues = validate("{{short|long one\n\nlong two}}")
-    assert any("blank line" in i["message"] for i in issues)
+def test_block_stretch_top_level_is_fine():
+    issues = validate("intro\n\n{{short|short, said once\n\nand then again}}\n\noutro")
+    assert issues == []
+
+
+def test_block_stretch_nested_rejected():
+    issues = validate("{{outer|outer {{inner|inner one\n\ninner two}} text}}")
+    assert any("inside another stretch" in i["message"] for i in issues)
+
+
+def test_block_stretch_in_list_rejected():
+    issues = validate("- item {{short|long one\n\nlong two}}")
+    assert any("top level of a block" in i["message"] for i in issues)
+
+
+def test_block_stretch_in_quote_or_indent_rejected():
+    for md in ("> {{s|l one\n\nl two}}", "    {{s|l one\n\nl two}}"):
+        assert any("top level of a block" in i["message"] for i in validate(md))
 
 
 def test_containment_enforced():

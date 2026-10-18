@@ -211,8 +211,9 @@ def validate(text: str, segments: list[Segment] | None = None) -> list[dict]:
     `line`, `key`, and `message`. Checks:
 
     - error: a `{{` never closed
-    - error: a stretch's contents cross a blank line (inline-only rule,
-      v1: the browser can't grow a stretch across blocks yet)
+    - error: a block-level stretch (its long form crosses a blank line)
+      that is nested inside another stretch, or starts inside a list,
+      quote, table or indentation — block growth is top-level only
     - error: the long form doesn't contain every word of the short form,
       in order (the growth rule)
     - warning: a stretch with no `|`, so there is nothing to open
@@ -237,14 +238,35 @@ def validate(text: str, segments: list[Segment] | None = None) -> list[dict]:
             continue
         raw = _inner_raw(text, st)
         if re.search(r"\n[ \t]*\n", raw):
-            issues.append(
-                {
-                    "severity": "error",
-                    "line": line_of(st.pos),
-                    "key": st.key,
-                    "message": "stretch crosses a blank line (inline only, for now)",
-                }
-            )
+            # Block-level growth. Placement rules: top level only.
+            if parent_of(st.key):
+                issues.append(
+                    {
+                        "severity": "error",
+                        "line": line_of(st.pos),
+                        "key": st.key,
+                        "message": "block-level stretch inside another stretch (top level only)",
+                    }
+                )
+            else:
+                line_start = text.rfind("\n", 0, st.pos) + 1
+                before = text[line_start:st.pos]
+                stripped = before.lstrip()
+                bad_context = (
+                    (len(before) - len(stripped)) > 0
+                    or stripped.startswith((">", "|", "-", "*", "+"))
+                    or re.match(r"\d+[.)]\s", stripped)
+                )
+                if bad_context:
+                    issues.append(
+                        {
+                            "severity": "error",
+                            "line": line_of(st.pos),
+                            "key": st.key,
+                            "message": "block-level stretch must start at the top level of a block "
+                            "(not in a list, quote, table, or indented)",
+                        }
+                    )
         if st.long is None:
             issues.append(
                 {

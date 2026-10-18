@@ -51,6 +51,13 @@ nav a:hover { color: var(--accent); }
 .stx.open > .stx-short { display: none; }
 .stx.open > .stx-long { display: inline; }
 
+/* block-level growth: the long form is one or more blocks */
+.stx-block { display: block; margin: 0.5em 0; }
+.stx-block > .stx-short { display: inline; }
+.stx-block > .stx-long { display: none; }
+.stx-block.open > .stx-short { display: none; }
+.stx-block.open > .stx-long { display: block; }
+
 /* new words, marked the way Dream Machines appears to set them */
 .stx-long mark.stx-new {
   background: none;

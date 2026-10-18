@@ -6,6 +6,18 @@ Everything the renderer can do, in one page.
 
 {{A budget is a plan for money.|A budget is a plan for money over a period: {{money coming in|money coming in, mostly wages for most households}} minus {{money going out|money going out: fixed costs like rent and utilities, plus variable costs like food}}.}}
 
+## Block growth
+
+A long form may hold whole blocks when the stretch stands on its own line:
+
+{{The plan has three parts.|The plan has three parts, each worth a look:
+
+1. **scan** everything at a glance
+2. **open** only what matters
+3. **read on** from there
+
+Nothing you have read moves.}}
+
 ## Code never stretches
 
 The markup is inert in code. A fence:

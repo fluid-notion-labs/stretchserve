@@ -78,6 +78,31 @@ def test_heading_warning():
     assert any("heading" in i["message"] for i in out.issues)
 
 
+def test_block_stretch_renders_as_div_with_paragraphs():
+    md = "intro\n\n{{A budget has two sides.|A budget has two sides, and both need attention:\n\n- money coming in\n- money going out\n\nWatch both.}}\n\noutro"
+    out = r.render(md)
+    assert '<div class="stx stx-block"' in out.html
+    # the long form kept its list and its extra paragraph
+    assert "<ul>" in out.html and "<li>money coming in</li>" in out.html
+    assert "<p>Watch both.</p>" in out.html
+    # surrounding text stayed in its own paragraphs (token got its own block)
+    assert "<p>intro</p>" in out.html and "<p>outro</p>" in out.html
+
+
+def test_block_stretch_mid_paragraph_still_lands_as_block():
+    md = "intro {{short|long one\n\nlong two}} outro"
+    out = r.render(md)
+    assert '<div class="stx stx-block"' in out.html
+    assert "<p>long two</p>" in out.html
+
+
+def test_inline_stretch_inside_block_long():
+    md = "{{outer|outer {{inner|inner one}} rest\n\nnext para}}"
+    out = r.render(md)
+    assert out.html.count('class="stx"') == 1  # inner is a span inside the block div
+    assert '<span class="stx"' in out.html
+
+
 def test_deterministic_output():
     md = "A {{x|x y}} B {{z|z w}}"
     assert r.render(md).html == r.render(md).html
