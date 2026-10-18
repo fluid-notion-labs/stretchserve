@@ -19,6 +19,23 @@ uv run stretchserve mcp docs        # MCP server (stdio)
 uv run pytest                       # test the scanner/renderer
 ```
 
+## Serving gzero
+
+`stretchserve mcp [dir] --gzero` runs the same MCP surface over the
+gzero stores, **read-only** (mutations stay with the gzero CLI and
+gzero-mcp; the write tools aren't registered):
+
+- `gzero/ws/<name>.md` — workflow sections of the project at `[dir]`
+- `gzero/items/<id>.md` — work items: status, design, acceptance, notes
+- `gzero/atoms/<scope>.md` — the atom store as a brief, grouped by node
+
+Sections and items are read via the gzero CLI's JSON modes (`ws
+list/show --json`, `item list/show --json`, run with `[dir]` as cwd);
+atoms come straight from the SQLite store (`CX_DB`, default
+`~/.pi/agent/context.db`). The skim/read views and validation work on
+all of it — so as gzero sections adopt `{{short|long}}`, agents get
+progressive disclosure there for free.
+
 ## MCP server
 
 `stretchserve mcp [dir]` runs a stdio MCP server over the workspace —

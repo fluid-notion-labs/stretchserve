@@ -28,11 +28,19 @@ def _fmt_issues(issues: list[dict]) -> str:
     return "Issues:\n" + "\n".join(lines) + "\n"
 
 
-def make_mcp(root: Path = Path(_DEFAULT_ROOT)):
-    """Build the FastMCP server bound to a workspace root."""
+def make_mcp(root: Path = Path(_DEFAULT_ROOT), gzero: bool = False):
+    """Build the MCP server bound to a backend: a file workspace, or (with
+    gzero=True) the read-only gzero source for the project at `root`."""
     from mcp.server.mcpserver import MCPServer
 
-    ws = Workspace(Path(root))
+    if gzero:
+        from .gzero_source import GzeroSource
+
+        ws = GzeroSource(project_dir=Path(root))
+        writable = False
+    else:
+        ws = Workspace(Path(root))
+        writable = True
     mcp = MCPServer(name="stretchserve", instructions=(
         "Workspace of stretchable markdown documents. A stretch is written "
         "{{short|long}}: the reader sees short; opening it grows the long form "
@@ -62,7 +70,10 @@ def make_mcp(root: Path = Path(_DEFAULT_ROOT)):
         (grow the stretches named in open_keys; opening a key opens its
         ancestors). The appendix lists closed stretches with their keys.
         """
-        text, issues = ws.read(path, mode=mode, open_keys=open_keys)
+        try:
+            text, issues = ws.read(path, mode=mode, open_keys=open_keys)
+        except WorkspaceError as e:
+            return f"error: {e}"
         if mode == "source":
             return text
         return text if not issues else text + "\n\n" + _fmt_issues(issues)
@@ -71,7 +82,10 @@ def make_mcp(root: Path = Path(_DEFAULT_ROOT)):
     def check_document(path: str) -> str:
         """Validate a document: issues, stretch keys (for read_document open_keys),
         and diagram blocks (mermaid/dot) that will render in the browser."""
-        report = ws.check(path)
+        try:
+            report = ws.check(path)
+        except WorkspaceError as e:
+            return f"error: {e}"
         out = _fmt_issues(report["issues"])
         keys = [k["key"] for k in report["stretches"] if k["openable"]]
         if keys:
@@ -81,6 +95,13 @@ def make_mcp(root: Path = Path(_DEFAULT_ROOT)):
                 f"{d['lang']} (line {d['line']})" for d in report["diagrams"]) + "\n"
         return out or "no issues, no stretches, no diagrams"
 
+    if writable:
+        _register_write_tools(mcp, ws)
+
+    return mcp
+
+
+def _register_write_tools(mcp, ws: Workspace) -> None:
     @mcp.tool()
     def create_document(path: str, content: str, strict: bool = True) -> str:
         """Create a new document. The content is stretch markup validated on
@@ -123,8 +144,6 @@ def make_mcp(root: Path = Path(_DEFAULT_ROOT)):
             return f"error: {e}"
         return f"deleted {path}"
 
-    return mcp
 
-
-def run(root: Path = Path(_DEFAULT_ROOT)) -> None:
-    make_mcp(root).run()  # stdio transport
+def run(root: Path = Path(_DEFAULT_ROOT), gzero: bool = False) -> None:
+    make_mcp(root, gzero=gzero).run()  # stdio transport

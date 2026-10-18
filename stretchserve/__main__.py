@@ -40,6 +40,9 @@ def main(argv: list[str] | None = None) -> None:
 
     p_mcp = sub.add_parser("mcp", help="run the MCP server (stdio)")
     p_mcp.add_argument("directory", nargs="?", default=".", type=Path)
+    p_mcp.add_argument("--gzero", action="store_true",
+                       help="serve the gzero atom store + workflow doc read-only "
+                            "(directory sets the project scope; mutations stay with gzero)")
 
     args = parser.parse_args(argv)
     if args.command == "serve":
@@ -49,7 +52,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "mcp":
         from .mcp_server import run
 
-        run(args.directory)
+        run(args.directory, gzero=args.gzero)
 
 
 if __name__ == "__main__":
