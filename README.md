@@ -1,0 +1,75 @@
+# stretchserve
+
+**Serve a directory of stretchable markdown.** Agents (or you) write `.md`
+files in which `{{short|long}}` marks a stretch: the page shows the short
+form, a click grows it into the long form in place, and the words already
+read never move. Ted Nelson's stretchtext (1967), served over HTTP.
+
+Built on the semantics proven by [cc-stretch](https://github.com/pro-vi/cc-stretch)
+(vendored in explorations at `vendor/cc-stretch`); its `parse.ts` is ported
+here to Python. Python-first on purpose: `uv run` is all you need. The
+scanner is the part worth porting to Rust later.
+
+## Quickstart
+
+```
+uv run stretchserve serve docs      # http://localhost:8377
+uv run stretchserve check docs      # validate the stretch markup
+uv run pytest                       # test the scanner/renderer
+```
+
+## What the server does
+
+- `.md` files render as pages; a directory with an `index.md`/`README.md`
+  renders that as its index, otherwise you get a listing.
+- Each stretch renders as `<span class="stx">` with short and long forms;
+  the browser toggles them (see `static/stretch.js`), marks the words the
+  long form adds by aligning the short form's words inside it, and adds a
+  `«` to close.
+- Fenced blocks tagged `mermaid` render via mermaid.js; `dot`/`graphviz`
+  via viz.js (graphviz WASM). Both load from CDN.
+- Markup problems are shown in a warnings box on the page and reported by
+  `check`: unclosed stretches, a stretch crossing a blank line, a long
+  form that drops or reorders the short form's words (the growth rule),
+  stretches in headings, and `{{...}}` with no `|`.
+
+## The rules (what "correctly" means)
+
+1. **Skim is complete.** The short form answers on its own; anything the
+   reader must decide or do stays outside every stretch.
+2. **Growth is conservative.** The long form contains every word of the
+   short form, in order, growing around them. Enforced as a hard error.
+3. **Keys are stable.** A stretch is keyed `parent › short` (with `~2`,
+   `~3` on repeated siblings), so adding an unrelated stretch never
+   shifts another stretch's key.
+4. **Markdown never lies.** Code spans and fences are opaque; no stretches
+   in code, tables, or headings; list items stretch individually.
+
+Inline-only limitation (v1): a stretch may not cross a blank line, so a
+long form is inline markdown (bold, links, code spans) but not block
+markdown (paragraphs, lists). Matching cc-stretch fully means letting a
+paragraph grow into several — later.
+
+## Architecture
+
+- `stretchserve/scanner.py` — port of cc-stretch's `parse.ts`: stretch
+  tree, keys, code-opaque scanning, plus `validate()` (the mechanical
+  checks cc-stretch does socially, via a prompt guide and benchmark).
+- `stretchserve/render.py` — stretch-aware markdown rendering: stretches
+  become placeholder tokens, the document is converted once with
+  python-markdown (so list/table structure around stretches survives),
+  then short/long fragments are converted and substituted back.
+- `stretchserve/server.py` — stdlib `http.server`; no framework.
+- `stretchserve/static/stretch.js` — toggle, LCS-based new-word marking,
+  mermaid/graphviz wiring.
+
+## Roadmap
+
+- MCP layer (`gzero-serve-mcp`): same scanner/renderer exposed as MCP
+  tools — agents read the skim, request `open(keys)` for the read view;
+  serving the gzero atom/workflow stores.
+- Block-level growth: long forms that grow across paragraphs and lists.
+- Vendored mermaid/viz (offline), syntax themes.
+- Rust port of the scanner (the crate doesn't exist yet — checked
+  crates.io; this would be the first stretchtext crate).
+- IPython integration: render stretchable docs in notebooks.
