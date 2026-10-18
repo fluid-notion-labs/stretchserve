@@ -15,8 +15,31 @@ scanner is the part worth porting to Rust later.
 ```
 uv run stretchserve serve docs      # http://localhost:8377
 uv run stretchserve check docs      # validate the stretch markup
+uv run stretchserve mcp docs        # MCP server (stdio)
 uv run pytest                       # test the scanner/renderer
 ```
+
+## MCP server
+
+`stretchserve mcp [dir]` runs a stdio MCP server over the workspace —
+the same directory the HTTP server can render. Seven tools:
+
+- `list_documents` — title, stretch counts, issue counts per file
+- `read_document(path, mode, open_keys)` — `source` (raw), `skim`
+  (default: braces stripped, complete prose), or `read` (the stretches
+  named in `open_keys` grown; opening a key opens its ancestors). Keys
+  match exactly, by suffix, or uniquely by substring. Every response
+  ends with an appendix of closed stretch keys, so a reader can decide
+  what to open next — the feedback loop cc-stretch gives a model.
+- `create_document` / `write_document` / `edit_document` / `delete_document`
+  — content is validated on write; with `strict=true` (default) hard
+  errors (unclosed, growth-rule violations, blank-line crossings) refuse
+  the write.
+- `check_document` — issues, the full stretch key map, and the diagram
+  blocks (mermaid/dot) that will render in the browser.
+
+Mermaid and graphviz are authored as fenced ` ```mermaid ` / ` ```dot `
+blocks; nothing special is needed to create them over MCP.
 
 ## What the server does
 
@@ -65,9 +88,8 @@ paragraph grow into several — later.
 
 ## Roadmap
 
-- MCP layer (`gzero-serve-mcp`): same scanner/renderer exposed as MCP
-  tools — agents read the skim, request `open(keys)` for the read view;
-  serving the gzero atom/workflow stores.
+- MCP layer: done (see above). Next: aim it at the gzero atom/workflow
+  stores so agents skim gzero and open depth on demand.
 - Block-level growth: long forms that grow across paragraphs and lists.
 - Vendored mermaid/viz (offline), syntax themes.
 - Rust port of the scanner (the crate doesn't exist yet — checked

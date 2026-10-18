@@ -38,11 +38,18 @@ def main(argv: list[str] | None = None) -> None:
     p_check = sub.add_parser("check", help="validate stretch markup in .md files")
     p_check.add_argument("directory", nargs="?", default=".", type=Path)
 
+    p_mcp = sub.add_parser("mcp", help="run the MCP server (stdio)")
+    p_mcp.add_argument("directory", nargs="?", default=".", type=Path)
+
     args = parser.parse_args(argv)
     if args.command == "serve":
         serve_main([str(args.directory), "--host", args.host, "--port", str(args.port)])
     elif args.command == "check":
         sys.exit(_check(args.directory))
+    elif args.command == "mcp":
+        from .mcp_server import run
+
+        run(args.directory)
 
 
 if __name__ == "__main__":
