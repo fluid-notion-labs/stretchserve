@@ -32,7 +32,11 @@ def main(argv: list[str] | None = None) -> None:
 
     p_serve = sub.add_parser("serve", help="serve a directory of markdown")
     p_serve.add_argument("directory", nargs="?", default=".", type=Path)
-    p_serve.add_argument("--host", default="127.0.0.1")
+    p_serve.add_argument(
+        "--host",
+        default=None,
+        help="bind address; default: ethernet if plugged in, else wifi",
+    )
     p_serve.add_argument("--port", type=int, default=8377)
 
     p_check = sub.add_parser("check", help="validate stretch markup in .md files")
@@ -46,7 +50,11 @@ def main(argv: list[str] | None = None) -> None:
 
     args = parser.parse_args(argv)
     if args.command == "serve":
-        serve_main([str(args.directory), "--host", args.host, "--port", str(args.port)])
+        argv = [str(args.directory)]
+        if args.host is not None:
+            argv += ["--host", args.host]
+        argv += ["--port", str(args.port)]
+        serve_main(argv)
     elif args.command == "check":
         sys.exit(_check(args.directory))
     elif args.command == "mcp":

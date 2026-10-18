@@ -154,13 +154,52 @@ def make_handler(root: Path, renderer: Renderer, pygments_css: str = ""):
     return Handler
 
 
+def _interface_ip(ifname: str) -> str | None:
+    """IPv4 address of a network interface, or None if it has none."""
+    import fcntl
+    import socket
+    import struct
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        addr = fcntl.ioctl(
+            sock.fileno(),
+            0x8915,  # SIOCGIFADDR
+            struct.pack("256s", ifname[:15].encode()),
+        )[20:24]
+        return socket.inet_ntoa(addr)
+    except OSError:
+        return None
+    finally:
+        sock.close()
+
+
+def pick_host() -> str:
+    """LAN address: ethernet if plugged in, else wifi, else localhost."""
+    import os
+
+    try:
+        names = os.listdir("/sys/class/net")
+    except OSError:
+        return "127.0.0.1"
+    ethernet = [n for n in names if n.startswith(("en", "eth"))]
+    wifi = [n for n in names if n.startswith(("wl", "wlan"))]
+    for ifname in ethernet + wifi:
+        ip = _interface_ip(ifname)
+        if ip:
+            return ip
+    return "127.0.0.1"
+
+
 def serve(directory: Path, host: str, port: int) -> None:
     root = directory.resolve()
     renderer = Renderer()
     handler = make_handler(root, renderer, "")
     httpd = HTTPServer((host, port), handler)
-    url = f"http://{host if host != '0.0.0.0' else 'localhost'}:{port}/"
-    print(f"stretchserve serving {root} at {url}  (Ctrl-C to stop)")
+    shown = host if host != "0.0.0.0" else "localhost"
+    print(f"stretchserve serving {root} at http://{shown}:{port}/  (Ctrl-C to stop)")
+    if host not in ("127.0.0.1", "localhost"):
+        print(f"  reachable on the network at http://{shown}:{port}/")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
@@ -172,10 +211,16 @@ def serve(directory: Path, host: str, port: int) -> None:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="stretchserve", description=__doc__)
     parser.add_argument("directory", nargs="?", default=".", type=Path)
-    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument(
+        "--host",
+        default=None,
+        help="bind address; default: ethernet if plugged in, else wifi "
+        "(--host 127.0.0.1 for local only)",
+    )
     parser.add_argument("--port", type=int, default=8377)
     args = parser.parse_args(argv)
-    serve(args.directory, args.host, args.port)
+    host = args.host if args.host is not None else pick_host()
+    serve(args.directory, host, args.port)
 
 
 if __name__ == "__main__":

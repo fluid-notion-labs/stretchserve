@@ -13,7 +13,8 @@ scanner is the part worth porting to Rust later.
 ## Quickstart
 
 ```
-uv run stretchserve serve docs      # http://localhost:8377
+uv run stretchserve serve docs      # binds to the LAN: ethernet if plugged in, else wifi
+                                    # (--host 127.0.0.1 for local only)
 uv run stretchserve check docs      # validate the stretch markup
 uv run stretchserve mcp docs        # MCP server (stdio)
 uv run pytest                       # test the scanner/renderer

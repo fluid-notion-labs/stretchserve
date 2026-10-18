@@ -22,7 +22,7 @@ CHROME_CANDIDATES = ["/snap/bin/chromium", "/usr/bin/chromium-browser", "/usr/bi
 @pytest.fixture(scope="module")
 def server():
     proc = subprocess.Popen(
-        [sys.executable, "-m", "stretchserve", "serve", "docs", "--port", "8399"],
+        [sys.executable, "-m", "stretchserve", "serve", "docs", "--host", "127.0.0.1", "--port", "8399"],
         cwd=str(pathlib.Path(__file__).resolve().parents[1]),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
