@@ -63,3 +63,8 @@ def test_listing_lists_entries(source: Path, tmp_path: Path):
 def test_refuses_to_build_into_source(source: Path):
     with pytest.raises(ValueError):
         build(source, source / "dist")
+
+
+def test_title_from_first_h1(source: Path, tmp_path: Path):
+    dest = build(source, tmp_path / "dist")
+    assert "<title>Home — stretchserve</title>" in (dest / "index.html").read_text()

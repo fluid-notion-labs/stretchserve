@@ -33,6 +33,7 @@ _INDEX_NAMES = ("index.md", "README.md")
 
 # href="doc.md", href="doc.md#anchor" -> .html; excludes "://", "mailto:"
 _MD_HREF = re.compile(r'(href=")([^":]+?)\.md')
+_H1 = re.compile(r"^#\s+(.+?)\s*$", re.MULTILINE)
 
 
 def build(source: Path, dest: Path) -> Path:
@@ -48,9 +49,10 @@ def build(source: Path, dest: Path) -> Path:
         rel = file.relative_to(source)
         text = file.read_text(encoding="utf-8", errors="replace")
         result = renderer.render(text)
+        title = _H1.search(text)
         page = _rewrite_md_hrefs(
             _PAGE.format(
-                title=html.escape(file.stem),
+                title=html.escape(title.group(1) if title else file.stem),
                 warnings=_warnings_html(result.issues),
                 body=result.html,
                 pygments_css="",
