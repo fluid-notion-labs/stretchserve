@@ -1,6 +1,6 @@
 # Authoring stretchable documents
 
-A stretch is written `{{short|long}}`. The reader sees **short**; clicking it grows it into **long**, in place.
+A stretch is written `{{short|long}}`. The reader sees **short**; hovering it shows a preview floating above the pointer, left-aligned with the text; a click grows it into **long**, in place, and pins it open (the « closes and unpins). Shift-click opens a stretch and everything nested inside it.
 
 The rules, each of which keeps a promise the reader depends on:
 

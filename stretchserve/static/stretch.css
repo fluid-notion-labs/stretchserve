@@ -74,6 +74,30 @@ nav a:hover { color: var(--accent); }
 }
 .stx-close:hover { color: var(--accent); }
 
+/* pinned open: the reader clicked, so it stays grown after hover-away */
+.stx.pinned > .stx-long { background: rgba(11, 92, 173, 0.05); box-shadow: 0 0 0 4px rgba(11, 92, 173, 0.05); border-radius: 3px; }
+.stx.pinned .stx-close { color: var(--accent); }
+
+/* hover preview: floats above the pointer, inert to it, never reflows the page */
+.stx-tip {
+  position: fixed;
+  z-index: 1000;
+  max-width: min(42rem, calc(100vw - 1rem));
+  padding: 0.55em 0.85em;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid #d8d8d0;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  font-size: 0.95em;
+  line-height: 1.55;
+  pointer-events: none;
+}
+/* « belongs to the in-place copy; the preview is read-only */
+.stx-tip .stx-close { display: none; }
+/* nested stretches inside the preview are display-only */
+.stx-tip .stx-short { cursor: default; }
+
 /* --- warnings (authoring feedback) --- */
 
 .stx-warnings {

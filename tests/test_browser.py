@@ -101,6 +101,40 @@ def test_new_words_marked(page):
     assert page.locator(".stx").first.locator(".stx-new").count() > 0
 
 
+def test_hover_shows_tooltip_above_pointer_not_in_place(page):
+    first = page.locator(".stx").first
+    short = first.locator(":scope > .stx-short")
+    box = short.bounding_box()
+    x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    page.mouse.move(x, y)
+    page.wait_for_timeout(400)  # dwell exceeds HOVER_OPEN_MS
+    tip = page.locator(".stx-tip")
+    assert tip.is_visible()
+    tbox = tip.bounding_box()
+    # above the pointer, not overlapping the words being pointed at
+    assert tbox["y"] + tbox["height"] <= y + 1
+    # left-aligned with the stretch text, so the eye goes straight up
+    assert abs(tbox["x"] - box["x"]) <= 2
+    # hover never grows the stretch in place
+    assert "open" not in (first.get_attribute("class") or "")
+    # leaving hides the preview (move to empty background, not another stretch)
+    page.mouse.move(5, 5)
+    page.wait_for_timeout(500)  # exceeds HOVER_CLOSE_MS
+    assert not tip.is_visible()
+
+
+def test_click_still_pins_after_hover(page):
+    first = page.locator(".stx").first
+    short = first.locator(":scope > .stx-short")
+    box = short.bounding_box()
+    page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    page.wait_for_timeout(400)
+    short.click()
+    assert "open" in first.get_attribute("class")
+    assert first.locator(":scope > .stx-long").is_visible()
+    assert not page.locator(".stx-tip").is_visible()
+
+
 def test_diagrams_drew(page):
     assert page.locator("svg").count() >= 1
     assert page.locator("pre > code.language-mermaid, div.language-mermaid").count() == 0

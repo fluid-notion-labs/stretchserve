@@ -42,6 +42,10 @@ def main(argv: list[str] | None = None) -> None:
     p_check = sub.add_parser("check", help="validate stretch markup in .md files")
     p_check.add_argument("directory", nargs="?", default=".", type=Path)
 
+    p_build = sub.add_parser("build", help="build a static site for Cloudflare Pages or any static host")
+    p_build.add_argument("directory", nargs="?", default=".", type=Path)
+    p_build.add_argument("-o", "--out", default="dist", type=Path)
+
     p_mcp = sub.add_parser("mcp", help="run the MCP server (stdio)")
     p_mcp.add_argument("directory", nargs="?", default=".", type=Path)
     p_mcp.add_argument("--gzero", action="store_true",
@@ -57,6 +61,11 @@ def main(argv: list[str] | None = None) -> None:
         serve_main(argv)
     elif args.command == "check":
         sys.exit(_check(args.directory))
+    elif args.command == "build":
+        from .build import build
+
+        dest = build(args.directory, args.out)
+        print(f"built {args.directory.resolve()} -> {dest}")
     elif args.command == "mcp":
         from .mcp_server import run
 

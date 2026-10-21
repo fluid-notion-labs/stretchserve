@@ -6,10 +6,12 @@
  *     <span class="stx-long">…</span>
  *   </span>
  * This script:
- * - makes openable stretches clickable (and keyboard-operable),
+ * - previews top-level stretches on hover with a tooltip floating above
+ *   the pointer — nothing grows in place until the reader asks, so moving
+ *   the pointer never reflows the page; a click grows the stretch in place
+ *   and pins it open, « closes and unpins it (keyboard-operable too);
  * - marks the words the long form adds, by aligning the short form's
  *   words inside the long form (they are a subsequence by rule),
- * - adds a « to close an open stretch,
  * - renders ```mermaid and ```dot fenced blocks.
  */
 
@@ -117,6 +119,25 @@
         longEl.appendChild(close);
       }
       markNew(stx);
+      // every stretch previews on hover — nested ones too; click still
+      // pins in place, which is how a nested stretch grows in the page
+      if (!stx.querySelector(":scope > .stx-long")) continue;
+      stx.addEventListener("mouseenter", (e) => {
+        mouseX = e.clientX; mouseY = e.clientY;
+        clearTimeout(hoverTimers.get(stx));
+        if (tipStx && tipStx !== stx) hideTip();
+        hoverTimers.set(stx, setTimeout(() => showTip(stx), HOVER_OPEN_MS));
+      });
+      stx.addEventListener("mousemove", (e) => {
+        mouseX = e.clientX; mouseY = e.clientY;
+        if (tipStx === stx && !tip.hidden) moveTip(e.clientX, e.clientY);
+      });
+      stx.addEventListener("mouseleave", () => {
+        clearTimeout(hoverTimers.get(stx));
+        if (tipStx === stx) {
+          hoverTimers.set(stx, setTimeout(() => hideTip(), HOVER_CLOSE_MS));
+        }
+      });
     }
   }
 
@@ -124,22 +145,36 @@
     if (open === undefined) open = !stx.classList.contains("open");
     stx.classList.toggle("open", open);
     if (open) markNew(stx);
+    return open;
   }
 
   document.addEventListener("click", (e) => {
     const close = e.target.closest(".stx-close");
-    if (close) { toggle(close.closest(".stx"), false); return; }
+    if (close) {
+      const stx = close.closest(".stx");
+      toggle(stx, false);
+      stx.classList.remove("pinned");
+      return;
+    }
     const shortEl = e.target.closest(".stx-short");
     if (!shortEl) return;
     const stx = shortEl.parentElement;
     if (!stx.querySelector(":scope > .stx-long")) return;
     if (e.shiftKey) {
-      // open this stretch and everything nested inside it
+      // open this stretch and everything nested inside it (pinned)
+      hideTip();
       const open = !stx.classList.contains("open");
       toggle(stx, open);
-      for (const nested of stx.querySelectorAll(".stx")) toggle(nested, open);
+      stx.classList.toggle("pinned", open);
+      for (const nested of stx.querySelectorAll(".stx")) {
+        toggle(nested, open);
+        nested.classList.toggle("pinned", open);
+      }
     } else {
-      toggle(stx);
+      // a click pins the stretch open; « closes and unpins
+      hideTip();
+      toggle(stx, true);
+      stx.classList.add("pinned");
     }
   });
 
@@ -148,8 +183,61 @@
     const shortEl = e.target.closest(".stx-short");
     if (!shortEl) return;
     e.preventDefault();
-    toggle(shortEl.parentElement);
+    const open = toggle(shortEl.parentElement);
+    shortEl.parentElement.classList.toggle("pinned", open);
   });
+
+  /* --- hover to preview (tooltip above the pointer), click to pin --- */
+
+  const HOVER_OPEN_MS = 150;   // brief dwell before a hover shows the preview
+  const HOVER_CLOSE_MS = 300;  // grace period before hover-away hides it
+  const hoverTimers = new WeakMap();
+
+  // One floating preview per page: a clone of the hovered stretch's long
+  // form, positioned above the pointer and inert to it (pointer-events:
+  // none), so hover never moves the words the reader is looking at.
+  const tip = document.createElement("div");
+  tip.className = "stx-tip";
+  tip.setAttribute("role", "tooltip");
+  tip.hidden = true;
+  document.body.appendChild(tip);
+  let tipStx = null;
+  let mouseX = 0, mouseY = 0;
+
+  function showTip(stx) {
+    if (stx.classList.contains("open")) return;
+    const longEl = stx.querySelector(":scope > .stx-long");
+    if (!longEl) return;
+    markNew(stx);
+    tip.replaceChildren();
+    for (const child of [...longEl.childNodes]) tip.appendChild(child.cloneNode(true));
+    // « belongs to the in-place copy; the preview is read-only
+    tip.querySelectorAll(".stx-close").forEach((b) => b.remove());
+    tipStx = stx;
+    tip.hidden = false;
+    moveTip(mouseX, mouseY);
+  }
+
+  function hideTip() {
+    tipStx = null;
+    tip.hidden = true;
+  }
+
+  function moveTip(x, y) {
+    const PAD = 8, GAP = 14;
+    const rect = tip.getBoundingClientRect();
+    // horizontal: left-aligned with the text being stretched, so the words
+    // the preview explains stay directly under its first line; vertical:
+    // floats above the pointer
+    let left = PAD;
+    const shortEl = tipStx && tipStx.querySelector(":scope > .stx-short");
+    if (shortEl) left = shortEl.getBoundingClientRect().left;
+    left = Math.max(PAD, Math.min(left, window.innerWidth - rect.width - PAD));
+    let top = y - GAP - rect.height;
+    if (top < PAD) top = Math.min(y + GAP, Math.max(PAD, window.innerHeight - rect.height - PAD));
+    tip.style.left = left + "px";
+    tip.style.top = top + "px";
+  }
 
   /* --- mermaid + graphviz --- */
 
@@ -178,9 +266,17 @@
     }
   }
 
+  // A fixed-position preview is stale the moment the page scrolls under it.
+  document.addEventListener("scroll", hideTip, { capture: true, passive: true });
+
   if (window.mermaid || window.viz) renderGraphs();
   window.addEventListener("graphs-ready", renderGraphs);
-  window.addEventListener("DOMContentLoaded", annotate);
-  if (document.readyState !== "loading") annotate();
+  // annotate exactly once: defer scripts run while readyState is already
+  // "interactive", so both paths below would otherwise run it
+  if (document.readyState === "loading") {
+    window.addEventListener("DOMContentLoaded", annotate);
+  } else {
+    annotate();
+  }
 })();
 

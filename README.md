@@ -2,8 +2,9 @@
 
 **Serve a directory of stretchable markdown.** Agents (or you) write `.md`
 files in which `{{short|long}}` marks a stretch: the page shows the short
-form, a click grows it into the long form in place, and the words already
-read never move. Ted Nelson's stretchtext (1967), served over HTTP.
+form, hovering shows a preview floating above the pointer, a click grows it
+into the long form in place and pins it open, and the words already read
+never move. Ted Nelson's stretchtext (1967), served over HTTP.
 
 Built on the semantics proven by [cc-stretch](https://github.com/pro-vi/cc-stretch)
 (vendored in explorations at `vendor/cc-stretch`); its `parse.ts` is ported
@@ -19,6 +20,18 @@ uv run stretchserve check docs      # validate the stretch markup
 uv run stretchserve mcp docs        # MCP server (stdio)
 uv run pytest                       # test the scanner/renderer
 ```
+
+For hosting without a server, `build` pre-renders the whole tree to a
+static site — same renderer, done once — and the output deploys to any
+static host (Cloudflare Pages, R2, S3, GitHub Pages):
+
+```
+uv run stretchserve build docs -o dist   # writes dist/ with .html pages + assets
+npx wrangler pages deploy dist           # e.g. Cloudflare Pages
+```
+
+Links written as `[text](page.md)` are rewritten to `.html`, and
+directories without an index get a generated listing page.
 
 ## Serving gzero
 
